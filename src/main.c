@@ -39,12 +39,10 @@ int main(void) {
     create_renderer();
     keyboard_t keyboard = create_keyboard();
     
-    // set the panic handler
-    SET_PANIC_HANDLER({
+    textures_t textures;
+    if (load_textures(&textures) != 0) {
         goto destroy_systems;
-    });
-
-    textures_t textures = load_textures();
+    }
     
     uint64_t last_time = get_time();
     float dt = 0;
@@ -69,10 +67,6 @@ int main(void) {
     // generate the maze and create the player object
     Maze maze = generate_maze(20, 20);
     Player player = new_player((Vec2) { 0.5f, 0.5f }, (Vec2) { 1, 0 }, PI/3 /* 60° */);
-
-    SET_PANIC_HANDLER({
-        goto free_game_ressources;
-    })
 
     // spawn the entities
     Entity entities[] = {

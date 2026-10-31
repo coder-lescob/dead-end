@@ -9,6 +9,6 @@
  * it also formats the text so that it fits on the screen
  * and shows press [ok] to quit app
  */
-void error_screen(char *msg);
+int error_screen(char *msg);
 
 #endif

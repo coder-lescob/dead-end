@@ -406,12 +406,16 @@ void raycast_render(Player player, Maze *maze, Entity *entities, size_t num_enti
     float   vertical_depth [SCREEN_HEIGHT];
     color_t vertical_buffer[SCREEN_HEIGHT];
 
+    /**
+     * TODO: batch multiple vertical buffers together
+     */
+
     // raycast
     for (uint16_t i = 0; i < SCREEN_WIDTH; i++) {
         // clear the vertical buffers
         clear_vertical_buffers(vertical_buffer, vertical_depth, i, layers);
 
-        // x-coordinate in camera space
+        // x-coordinate in camera space in [-1;1] (transforming [0;1] to [-1;1] using 2x+1)
         float camera_x = 2 * i / (float)SCREEN_WIDTH - 1; 
 
         // compute direction of the ray

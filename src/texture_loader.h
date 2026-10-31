@@ -39,7 +39,7 @@ typedef struct {
 /**
  * load textures from texture file
  */
-textures_t load_textures(void);
+int load_textures(textures_t *textures);
 
 /**
  * free all texture data
@@ -54,7 +54,7 @@ header_t parse_header(const char *file_content);
 /**
  * check for any missing section
  */
-void check_for_missing_sections(header_t *header);
+int check_for_missing_sections(header_t *header);
 
 /**
  * reads the next uint32 from the file and increament the pointer by 4 bytes

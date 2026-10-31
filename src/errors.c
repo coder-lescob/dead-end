@@ -2,7 +2,6 @@
 #include "platform.h"
 
 #include "timings.h"
-#include "unwind.h"
 #include <stdlib.h>
 
 #ifdef PLATFORM_CALCULATOR
@@ -18,7 +17,7 @@
  * it also formats the text so that it fits on the screen
  * and shows some help for the user
  */
-void error_screen(char *msg) {
+int error_screen(char *msg) {
 
     // fill the screen with red
     draw_rect_uniform(eadk_screen_rect, eadk_color_red);
@@ -61,6 +60,6 @@ void error_screen(char *msg) {
 
     // destroy the keyboard
     destroy_keyboard(&keyboard);
-
-    PANIC();
+  
+    return -1;
 }

@@ -54,7 +54,7 @@ typedef struct {
 */
 typedef struct {
     int16_t offset_y;
-    fixed16_t table[SCREEN_HEIGHT/2];
+    fixed16_t table[SCREEN_HEIGHT];
 } Y_ToDepthLookup;
 
 /** 
