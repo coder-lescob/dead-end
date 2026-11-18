@@ -3,6 +3,8 @@
 #include "math.h"
 #include "texture_loader.h"
 #include "rendering.h"
+#include "fixed_points.h"
+#include "errors.h"
 #include <assert.h>
 #include <string.h>
 
@@ -10,14 +12,15 @@
 #include <stdlib.h>
 
 // lookup table
-DepthToY_Lookup depth_y_lookup = {
-    .offset_y = 0xffff, // extremly unlikly
+Y_ToDepthLookup depth_y_lookup = {
+    .offset_y = 0xffff, // extremly unlikly for the first y offset
     .table    = {0},
 };
 
 // Yes I actually know that much
 #define PI 3.141592653589793f
 
+// don't draw entities that are at a depth less than the near camera plane
 #define NEAR_CAM_DEPTH (0.05f)
 
 HitInfo raycast_single_ray(Ray ray, Maze *maze) {
@@ -94,6 +97,7 @@ HitInfo raycast_single_ray(Ray ray, Maze *maze) {
             hit_side         = HORIZONTAL;
         }
 
+        // If is ray going outside of the maze
         if (map_pos.x >= maze->width || map_pos.y >= maze->height || map_pos.x < 0 || map_pos.y < 0) {
             break;
         }
@@ -101,6 +105,7 @@ HitInfo raycast_single_ray(Ray ray, Maze *maze) {
         // compute the tile type
         tile_idx = map_pos.x + map_pos.y * maze->width;
 
+        // If hite a block
         if (maze->tiles[tile_idx] > 0) {
             block_type = maze->tiles[tile_idx];
             break;
@@ -123,6 +128,7 @@ HitInfo raycast_single_ray(Ray ray, Maze *maze) {
     if (hit_side == VERTICAL   && ray.direction.x > 0) tex_x = TEXTURE_WIDTH - tex_x - 1;
     if (hit_side == HORIZONTAL && ray.direction.y < 0) tex_x = TEXTURE_WIDTH - tex_x - 1;
 
+    // return all these infos in an hitInfo
     return (HitInfo) {
         .distance = distance,
         .side     = hit_side,
@@ -133,6 +139,10 @@ HitInfo raycast_single_ray(Ray ray, Maze *maze) {
     };
 }
 
+/**
+ * get the texture for any block type
+ * @note default texture 0
+ */
 static color_t *map_block_type_to_texture(uint8_t block_type, textures_t textures) {
     switch (block_type) {
         case 0:
@@ -150,7 +160,7 @@ static color_t *map_block_type_to_texture(uint8_t block_type, textures_t texture
  * draw the vertical slice of a wall
  * @warning assums vertical_buffer and vertical_depth are initialized properly
  */
-static void draw_wall_slice(color_t *vertical_buffer, float *vertical_depth, Ray ray, HitInfo hitInfo, int16_t offset_y, textures_t textures) {
+static void draw_wall_and_floor_slice(color_t *vertical_buffer, float *vertical_depth, Ray ray, HitInfo hitInfo, int16_t offset_y, textures_t textures) {
     if (vertical_buffer == NULL || vertical_depth == NULL) {
         return;
     }
@@ -184,7 +194,7 @@ static void draw_wall_slice(color_t *vertical_buffer, float *vertical_depth, Ray
         }
 
         // get the color from the texture with avoiding overflows
-        uint8_t tex_y = (uint8_t)texture_y & (TEXTURE_HEIGHT - 1);
+        uint8_t tex_y = (uint8_t)texture_y % TEXTURE_HEIGHT;
         color_t color = current_texture[hitInfo.texture_x * TEXTURE_HEIGHT + tex_y];
 
         // darken the HORIZONTAL side
@@ -195,80 +205,83 @@ static void draw_wall_slice(color_t *vertical_buffer, float *vertical_depth, Ray
         vertical_depth [y] = hitInfo.distance;
     }
 
-    // thanks to https://lodev.org/cgtutor/raycasting2.html
+    // thanks to https://lodev.org/cgtutor/raycasting2.html for the tip
     if (offset_y != depth_y_lookup.offset_y) {
         // shall refresh the lookup table
-        for (int16_t y = SCREEN_HEIGHT/2; y < SCREEN_HEIGHT; y++) {
-            depth_y_lookup.table[y-SCREEN_HEIGHT/2] = (offset_y + SCREEN_HEIGHT/2) / (float)(y - SCREEN_HEIGHT/2);
+        for (int16_t y = 0; y < SCREEN_HEIGHT; y++) {
+            if (y == SCREEN_HEIGHT/2) continue; //dst = INFINITY
+            depth_y_lookup.table[y] = float_to_fixed16((offset_y + SCREEN_HEIGHT/2) / (float)(y - SCREEN_HEIGHT/2));
         }
 
         depth_y_lookup.offset_y = offset_y;
     }
 
     // draw the floor
-    float floor_x_wall, floor_y_wall;
+    fixed16_t floor_x_wall, floor_y_wall;
 
     // 4 different wall directions possible
     if (hitInfo.side == VERTICAL && ray.direction.x > 0)
     {
-        floor_x_wall = hitInfo.map_pos.x;
-        floor_y_wall = hitInfo.map_pos.y + hitInfo.hit_x;
+        floor_x_wall = INT_TO_FIXED16(hitInfo.map_pos.x);
+        floor_y_wall = INT_TO_FIXED16(hitInfo.map_pos.y) + float_to_fixed16(hitInfo.hit_x);
     }
     else if (hitInfo.side == VERTICAL && ray.direction.x < 0)
     {
-        floor_x_wall = hitInfo.map_pos.x + 1.0f;
-        floor_y_wall = hitInfo.map_pos.y + hitInfo.hit_x;
+        floor_x_wall = INT_TO_FIXED16(hitInfo.map_pos.x + 1);
+        floor_y_wall = INT_TO_FIXED16(hitInfo.map_pos.y) + float_to_fixed16(hitInfo.hit_x);
     }
     else if (hitInfo.side == HORIZONTAL && ray.direction.y > 0)
     {
-        floor_x_wall = hitInfo.map_pos.x + hitInfo.hit_x;
-        floor_y_wall = hitInfo.map_pos.y;
+        floor_x_wall = INT_TO_FIXED16(hitInfo.map_pos.x) + float_to_fixed16(hitInfo.hit_x);
+        floor_y_wall = INT_TO_FIXED16(hitInfo.map_pos.y);
     }
     else
     {
-        floor_x_wall = hitInfo.map_pos.x + hitInfo.hit_x;
-        floor_y_wall = hitInfo.map_pos.y + 1.0f;
+        floor_x_wall = INT_TO_FIXED16(hitInfo.map_pos.x) + float_to_fixed16(hitInfo.hit_x);
+        floor_y_wall = INT_TO_FIXED16(hitInfo.map_pos.y + 1);
     }
 
     // set the first texture for the floor
     color_t *floor_texture = textures.wall_textures + TEXTURE_SIZE*6;
+    color_t *ceiling_texture = textures.wall_textures + TEXTURE_SIZE;
 
     if (draw_end < 0) draw_end = SCREEN_HEIGHT;
-    float inv_dst = 1 / hitInfo.distance;
+    fixed16_t inv_dst = float_to_fixed16(1 / hitInfo.distance);
+
+    // constants for speed
+    fixed16_t origine_x = float_to_fixed16(ray.origine.x);
+    fixed16_t origine_y = float_to_fixed16(ray.origine.y);
+    fixed16_t dx = floor_x_wall - origine_x;
+    fixed16_t dy = floor_y_wall - origine_y;
 
     for (int16_t y = draw_end+1; y < SCREEN_HEIGHT; y++) {
         // current distance to pixel
-        float current_distance = depth_y_lookup.table[y-SCREEN_HEIGHT/2];
+        fixed16_t floor_dst = depth_y_lookup.table[y];
 
         // if the depth of this pixel is already less don't render there is some thing in front
-        if (vertical_depth[y] < current_distance) {
+        if (vertical_depth[y] < fixed16_to_float(floor_dst)) {
             continue;
         }
 
         // compute the current weight (distance in range [0, wall_distance])
-        float weight = current_distance * inv_dst;
+        fixed16_t weight = fixed16_mul(floor_dst, inv_dst);
 
         // find the texture pos in range [0, 1]
-        Vec2 current_floor_pos = {
-            weight * floor_x_wall + (1.0f - weight) * ray.origine.x,
-            weight * floor_y_wall + (1.0f - weight) * ray.origine.y,
-        };
-
-        float fx = current_floor_pos.x - floor(current_floor_pos.x);
-        float fy = current_floor_pos.y - floor(current_floor_pos.y);
+        fixed16_t current_floor_pos_x = origine_x + fixed16_mul(weight, dx);
+        fixed16_t current_floor_pos_y = origine_y + fixed16_mul(weight, dy);
 
         // change from range [0, 1] to [0, TEXTURE_WIDTH] and [0, TEXTURE_HEIGHT]
-        int16_t texture_x = fx * TEXTURE_WIDTH;
-        int16_t texture_y = fy * TEXTURE_HEIGHT;
+        int32_t texture_x = FIXED16_TO_INT(fixed16_mul(FRAC_f16(current_floor_pos_x), INT_TO_FIXED16(TEXTURE_WIDTH)));
+        int32_t texture_y = FIXED16_TO_INT(fixed16_mul(FRAC_f16(current_floor_pos_y), INT_TO_FIXED16(TEXTURE_HEIGHT)));
         
+        // floor
         // texture laid down on the side
         vertical_buffer[y] = floor_texture[texture_x * TEXTURE_HEIGHT + texture_y];
-        vertical_depth [y] = current_distance;
+        vertical_depth [y] = fixed16_to_float(floor_dst);
 
-        if (y + 1 >= SCREEN_HEIGHT) break;
-
-        vertical_buffer[y + 1] = floor_texture[texture_x * TEXTURE_HEIGHT + texture_y];
-        vertical_depth [y + 1] = current_distance;
+        // ceiling
+        vertical_buffer[SCREEN_HEIGHT - y] = ceiling_texture[texture_x * TEXTURE_HEIGHT + texture_y];
+        vertical_depth [SCREEN_HEIGHT - y] = fixed16_to_float(floor_dst);
     }
 }
 
@@ -340,10 +353,8 @@ static inline bool in_rect(rect_t rect, uint16_t x, uint16_t y) {
 }
 
 static int16_t in_any_rect(LayeredTextures layers, uint16_t x, uint16_t y) {
-    for (uint16_t i = 0; i < layers.num_rects; i++) {
-        if (!in_rect(layers.rects[i], x, y)) continue;
-        return i;
-    }
+    for (uint16_t i = 0; i < layers.num_rects; i++)
+        if (in_rect(layers.rects[i], x, y)) return i;
     return -1;
 }
 
@@ -363,16 +374,23 @@ static void clear_vertical_buffers(color_t *vertical_buffer, float *vertical_dep
             continue;
         }
         
-        // local xy
-        uint16_t local_x = x - layers.rects[i].x;
-        uint16_t local_y = y - layers.rects[i].y;
-        uint16_t pix_index = (layers.on_the_side[i])? 
+        if (layers.pixels_by_rect[i] == NULL) {
+            vertical_buffer[y] = 0;
+        }
+        else {
+            // local xy
+            uint16_t local_x = x - layers.rects[i].x;
+            uint16_t local_y = y - layers.rects[i].y;
+            uint16_t pix_index = (layers.on_the_side[i])? 
                     local_x * layers.rects[i].height + local_y 
-                  : local_x + local_y * layers.rects[i].width;
+                    : local_x + local_y * layers.rects[i].width;
+
+            // set color
+            vertical_buffer[y] = layers.pixels_by_rect[i][pix_index];
+        }
 
         // depth set to negative layer
         vertical_depth[y] = -layers.layers[i];
-        vertical_buffer[y] = layers.pixels_by_rect[i][pix_index];
     }
 }
 
@@ -382,14 +400,22 @@ void raycast_render(Player player, Maze *maze, Entity *entities, size_t num_enti
     EntityDepth entities_depth[SCREEN_WIDTH];
     get_entities_depth(player, entities_depth, entities, num_entities, textures);
 
+    // I can't have an entire backbuffer for the whole screen
+    // so I keep a backbuffer per column since that is pretty
+    // good for a raycaster that renders per column
     float   vertical_depth [SCREEN_HEIGHT];
     color_t vertical_buffer[SCREEN_HEIGHT];
 
+    /**
+     * TODO: batch multiple vertical buffers together
+     */
+
     // raycast
     for (uint16_t i = 0; i < SCREEN_WIDTH; i++) {
+        // clear the vertical buffers
         clear_vertical_buffers(vertical_buffer, vertical_depth, i, layers);
 
-        // x-coordinate in camera space
+        // x-coordinate in camera space in [-1;1] (transforming [0;1] to [-1;1] using 2x+1)
         float camera_x = 2 * i / (float)SCREEN_WIDTH - 1; 
 
         // compute direction of the ray
@@ -398,33 +424,40 @@ void raycast_render(Player player, Maze *maze, Entity *entities, size_t num_enti
             player.dir.y + player.plane.y * camera_x
         };
 
+        // create the ray starting from the player's position and going in the direction computed above 
         Ray ray = (Ray) { player.pos, dir };
 
         // cast the ray
         HitInfo hitInfo = raycast_single_ray(ray, maze);
 
-        /**
-         * TODO: render floor and sky
-         */
-
-        draw_wall_slice(vertical_buffer, vertical_depth, ray, hitInfo, 20, textures);
+        // draw the wall and the floor
+        int16_t y_offset = 0; // offset Y of the player compared to the center of the screen
+        draw_wall_and_floor_slice(vertical_buffer, vertical_depth, ray, hitInfo, y_offset, textures);
 
         // recompute wall_enter for caching
-        int16_t wall_center = SCREEN_HEIGHT / 2 + 20 / hitInfo.distance;
+        int16_t wall_center = SCREEN_HEIGHT / 2 + y_offset / hitInfo.distance;
         if (wall_center < 0) wall_center = 0;
         if (wall_center >= SCREEN_HEIGHT) wall_center = SCREEN_HEIGHT;
 
-        if (vertical_depth[wall_center] > entities_depth[i].min_depth) {
-            for (uint16_t entity = 0; entity < entities_depth[i].num_entities; entity++) {
-                draw_entity_slice(vertical_buffer, vertical_depth, entities_depth[i].entities[entity], 0, textures);
-            }
+        // If the closest entity is in front of the wall then draw all entities in that slice
+        if (vertical_depth[wall_center] <= entities_depth[i].min_depth) {
+            // avoid nesting using goto
+            goto ignore_rendering_entities;
         }
 
-        render_vertical_slice_to_screen(vertical_buffer, i);
-    }
+        // draw all entities
+        for (uint16_t entity = 0; entity < entities_depth[i].num_entities; entity++) {
+            draw_entity_slice(vertical_buffer, vertical_depth, entities_depth[i].entities[entity], 0, textures);
+        }
 
-    for (uint16_t i = 0; i < SCREEN_WIDTH; i++) {
-        free(entities_depth[i].entities);
+ignore_rendering_entities:
+        // render the current slice (like swapping the buffers but I can't do that since I have not enought memory)
+        render_vertical_slice_to_screen(vertical_buffer, i);
+        
+        // free all the entities infos for that slice since they are outdated
+        if (entities_depth[i].entities != NULL) {
+            free(entities_depth[i].entities);
+        }
     }
 }
 
@@ -433,13 +466,13 @@ void get_entities_depth(Player player, EntityDepth *entities_depth, Entity *enti
 
     void push_entity_to_depth(EntityDepth *depth, EntitySlice slice);
 
-    // the entities depth for each screen slice
+    // the entities depth for each screen slice is initialized to a NULL value
     for (uint16_t i = 0; i < SCREEN_WIDTH; i++) {
         entities_depth[i] = (EntityDepth) {
             .min_depth = INFINITY,
             .num_entities = 0,
-            .capacity = 1,
-            .entities = calloc(1, sizeof(EntitySlice)),
+            .capacity = 0,
+            .entities = NULL,
         };
     }
 
@@ -459,23 +492,24 @@ void get_entities_depth(Player player, EntityDepth *entities_depth, Entity *enti
             entities[i].pos.y - player.pos.y
         };
 
-        // transform sprite with the inverse camera matrix
+        // transform sprite with the inverse camera matrix:
         // [ planeX   dirX ] -1                                       [ dirY      -dirX ]
         // [               ]       =  1/(planeX*dirY-dirX*planeY) *   [                 ]
         // [ planeY   dirY ]                                          [ -planeY  planeX ]
 
         Vec2 transformed_pos = {
-            inv_det * ( player.dir.y * entity_pos.x   - player.dir.x   * entity_pos.y),
+            inv_det * ( player.dir.y   * entity_pos.x - player.dir.x   * entity_pos.y),
             inv_det * (-player.plane.y * entity_pos.x + player.plane.x * entity_pos.y), // Y is actually the depth
         };
-
-        if (transformed_pos.y <= NEAR_CAM_DEPTH) {
-            // behind the camera
+        
+        // If behind the camera
+        if (transformed_pos.y <= NEAR_CAM_DEPTH) {    
             continue;
         }
 
-        int16_t entity_screen_pos_x = (int16_t)(SCREEN_WIDTH / 2 * (1 + transformed_pos.x / transformed_pos.y));
-        int16_t entity_width =  abs((int16_t)(SCREEN_HEIGHT / (2.0f * transformed_pos.y)));
+        // compute the x position on the screen and the width
+        int16_t entity_screen_pos_x = (int16_t)SCREEN_WIDTH / 2 * (1 + transformed_pos.x / transformed_pos.y);
+        int16_t entity_width =  (int16_t)SCREEN_HEIGHT / (2.0f * transformed_pos.y); // transform_pos.y > NEAR_CAM_DEPTH > 0
 
         // check for overflows
         if ( entity_screen_pos_x - entity_width / 2 >= SCREEN_WIDTH 
@@ -483,7 +517,7 @@ void get_entities_depth(Player player, EntityDepth *entities_depth, Entity *enti
             continue;
         }
 
-        // compuet start and end
+        // compute start and end of the draw on the x axis
         int16_t draw_start_x = entity_screen_pos_x - entity_width / 2;
         int16_t draw_end_x   = draw_start_x + entity_width;
         if (draw_start_x < 0) draw_start_x = 0;
@@ -493,10 +527,11 @@ void get_entities_depth(Player player, EntityDepth *entities_depth, Entity *enti
         float delta_texture_x = textures.entities_tex_w / (float)entity_width;
         float texture_x       = (draw_start_x - entity_screen_pos_x + entity_width / 2) * delta_texture_x;
 
+        // for all slice_x push the entity the slice corresponding to the x value
         for (int16_t slice = draw_start_x; slice < draw_end_x; slice++, texture_x += delta_texture_x) {
             push_entity_to_depth(
                 &entities_depth[slice], 
-                (EntitySlice) { .type = entity_type, .texture_x = texture_x, .dst = transformed_pos.y }
+                (EntitySlice) { .type = entity_type, .texture_x = (uint8_t)texture_x, .dst = transformed_pos.y }
             );
         }
     }
@@ -506,27 +541,36 @@ void push_entity_to_depth(EntityDepth *depth, EntitySlice slice) {
     // avoid overflowing the number of entities
     if (depth->num_entities == 255) return;
     if (depth->num_entities + 1 <= depth->capacity) {
+        // a goto statment? yes it is the only kind of way that the goto statment is useful
+        // since this is not the most interessting path a goto statment avoid having a big 
+        // thing inside of an If statment.
         goto directly_push_entity;
     }
 
-    // the new capacity
-    uint16_t new_capacity = depth->capacity * 2;
+    // the buffer has not enough place so we need to allocate more space
+    // in order to have the perfect traidoff we reallocate about twice what we need
+    // so that we don't have to reallocate any time soon.
+    uint16_t new_capacity = (depth->capacity + 1) * 2;
     if (new_capacity > 255) new_capacity = 255;
 
     // reallocate the entity buffer
     EntitySlice *new_entities = realloc(depth->entities, new_capacity * sizeof(EntitySlice));
 
     // allocation failed
-    if (new_entities == NULL) return;
+    if (new_entities == NULL) {
+        error_screen("entity buffer reallocation failed");
+        return;
+    }
 
     // put the entity array back in the entity depth struct
-    // and push the entity
-    depth->entities = new_entities;
-    depth->capacity = new_capacity;
+    depth->entities = new_entities; // update the pointer
+    depth->capacity = new_capacity; // update the capacity
 
 directly_push_entity:
+    // push the entity to the entity vector
     depth->entities[depth->num_entities++] = slice;
 
+    // update the min_depth if the depth is below the last recorded
     if (slice.dst < depth->min_depth) {
         depth->min_depth = slice.dst;
     }

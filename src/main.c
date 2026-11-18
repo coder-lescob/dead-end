@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <malloc.h>
+#include <stdbool.h>
 
 // system specific wrappers
 #include "platform.h"
@@ -9,6 +10,7 @@
 #include "input.h"
 #include "timings.h"
 #include "texture_loader.h"
+#include "unwind.h"
 
 // game files
 #include "vec.h"
@@ -16,8 +18,9 @@
 #include "maze.h"
 #include "player.h"
 #include "entity.h"
+#include "fixed_points.h"
 
-#define VERSION "0.4.8"
+#define VERSION "0.5.0"
 
 // Yes I actually know that much
 #define PI 3.141592653589793f
@@ -31,14 +34,14 @@ const uint32_t eadk_api_level  __attribute__((section(".rodata.eadk_api_level"))
 #endif
 
 int main(void) {
-    
+
+    // create systems like renderer and keyboard
     create_renderer();
-    
     keyboard_t keyboard = create_keyboard();
-    textures_t textures = load_textures();
-    if (!textures.successful_load) {
-        // exit application
-        goto endapp_init;
+    
+    textures_t textures;
+    if (load_textures(&textures) != 0) {
+        goto destroy_systems;
     }
     
     uint64_t last_time = get_time();
@@ -61,15 +64,18 @@ int main(void) {
         last_time = get_time();
     }
 
+    // generate the maze and create the player object
     Maze maze = generate_maze(20, 20);
     Player player = new_player((Vec2) { 0.5f, 0.5f }, (Vec2) { 1, 0 }, PI/3 /* 60° */);
 
+    // spawn the entities
     Entity entities[] = {
         (Entity) { .entity_type = 1, .pos = (Vec2) { 0.5f, 1.5f }},
         (Entity) { .entity_type = 1, .pos = (Vec2) { 1.5f, 0.5f }},
         (Entity) { .entity_type = 0, .pos = (Vec2) { 1.5f, 1.5f }},
     };
 
+    // game loop
     while (true) {
         keyboard_poll(&keyboard);
 
@@ -85,25 +91,12 @@ int main(void) {
             entity_move(&entities[i], dt, &player);
         }
 
-        rect_t rects[1] = {
-            (rect_t) { SCREEN_WIDTH-TEXTURE_WIDTH, 0, TEXTURE_WIDTH, TEXTURE_HEIGHT },
-        };
-
-        color_t *tex[1] = {
-            textures.wall_textures,
-        };
-
-        bool on_the_side[1] = { true, };
-        int16_t rect_layers[1] = {
-            INT16_MAX,
-        };
-
         LayeredTextures layers = {
-            .num_rects = 1,
-            .rects = rects,
-            .pixels_by_rect = tex,
-            .on_the_side = on_the_side,
-            .layers      = rect_layers
+            .num_rects = 0,
+            .rects = NULL,
+            .pixels_by_rect = NULL,
+            .on_the_side = NULL,
+            .layers      = NULL,
         };
 
         // render the terain
@@ -121,11 +114,12 @@ int main(void) {
         last_time = get_time();
     }
 
+free_game_ressources:
     // free the maze
     free_maze(&maze);
     unload_textures(&textures);
 
-endapp_init:
+destroy_systems:
     // destroy the keyboard
     destroy_keyboard(&keyboard);
     destroy_renderer();

@@ -2,6 +2,7 @@
 
 #include "platform.h"
 #include "errors.h"
+#include "unwind.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -10,13 +11,12 @@
 /**
  * load textures from texture file
  */
-textures_t load_textures(void) {
+int load_textures(textures_t *textures) {
 
     header_t header = parse_header(eadk_external_data);
-    if (missing_sections(&header)) {
-        // not successful loading...
-        return (textures_t) { .successful_load = false, };
-    }
+    int missing = check_for_missing_sections(&header);
+    
+    if (missing != 0) { return -1; }
 
     const char *wall_ptr = eadk_external_data + header.wall_offset;
     const char *titl_ptr = eadk_external_data + header.titl_offset;
@@ -27,8 +27,7 @@ textures_t load_textures(void) {
     (void)next_u16(&sky_ptr); // ignore sky dimentions
     (void)next_u16(&sky_ptr); // ignore sky dimentions
 
-    textures_t textures = {
-        .successful_load = true,
+    *textures = (textures_t){
         .wall_tex_w    = (uint16_t)next_u16(&wall_ptr),
         .wall_tex_h    = (uint16_t)next_u16(&wall_ptr),
         .entities_tex_w = (uint16_t)next_u16(&enty_ptr),
@@ -38,7 +37,7 @@ textures_t load_textures(void) {
         .title_screen      = (color_t *)titl_ptr,
         .sky_texture       = (color_t *)sky_ptr,
     };
-    return textures;
+    return 0;
 }
 
 void unload_textures(textures_t *textures) {
@@ -74,26 +73,18 @@ static void load_texture_offset(header_t *header, char *name, uint32_t offset) {
 /**
  * check for any missing section
  */
-bool missing_sections(header_t *header) {
-    if (header->wall_offset == 0) {
-        error_screen("unable to load wall texture:\n'wall' section not found");
-        return true;
-    }
-    else if (header->titl_offset == 0) {
-        error_screen("unable to load title screen texture:\n'titl' section not found");
-        return true;
-    }
-    else if (header->sky_offset == 0) {
-        error_screen("unable to load sky texture:\n'sky ' section not found");
-        return true;
-    }
-    else if (header->enty_offset == 0) {
-        error_screen("unable to load entity textures:\n'enty' section not found");
-        return true;
-    }
+int check_for_missing_sections(header_t *header) {
+    if (header->wall_offset == 0)
+        return error_screen("unable to load wall texture:\n'wall' section not found");
+    else if (header->titl_offset == 0) 
+        return error_screen("unable to load title screen texture:\n'titl' section not found");
+    else if (header->sky_offset == 0)
+        return error_screen("unable to load sky texture:\n'sky ' section not found");
+    else if (header->enty_offset == 0)
+        return error_screen("unable to load entity textures:\n'enty' section not found");
 
     // No problemo
-    return false;
+    return 0;
 }
 
 /**

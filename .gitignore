@@ -3,3 +3,4 @@ sim_path.mak
 .vscode/
 *.exe
 .gdbinit
+.editorconfig
