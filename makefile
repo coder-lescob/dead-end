@@ -10,7 +10,7 @@ NWLINK := npx --yes nwlink
 SRC_DIR = src
 SRC = $(wildcard $(SRC_DIR)/*.c)
 
-ICON := $(SRC_DIR)/icon.png
+ICON := $(SRC_DIR)/dead_end_logo.png
 ICON_O := $(BUILD_DIR)/icon.o
 
 PLATFORM := device
@@ -18,12 +18,12 @@ PLATFORM := device
 ifeq ($(PLATFORM), simulator)
     CC := gcc
 
-    C_FLAGS := $(shell $(NWLINK) eadk-cflags-simulator) -ggdb -fno-exceptions -Wall 
+    C_FLAGS := $(shell $(NWLINK) eadk-cflags-simulator) -ggdb -fno-exceptions -Wall
     LD_FLAGS := $(shell $(NWLINK) eadk-ldflags-simulator) -undefined,dynamic_lookup
 else
     CC := arm-none-eabi-gcc
 
-    C_FLAGS = $(shell $(NWLINK) eadk-cflags-device) -MMD -MP
+    C_FLAGS = $(shell $(NWLINK) eadk-cflags-device) -MMD -MP -Os
     LD_FLAGS = $(shell $(NWLINK) eadk-ldflags-device) -lc -lm --specs=nosys.specs -fdata-sections -ffunction-sections \
   -flto -fno-fat-lto-objects -fwhole-program -fvisibility=internal \
   -Wl,-e,main \
@@ -48,13 +48,13 @@ endif
 
 run: build
 ifeq ($(PLATFORM), simulator)
-	@$(SIM) --nwb $(TARGET)
+	@$(SIM) --nwb $(TARGET) --nwb-external-data src/textures
 else
-	@$(NWLINK) install-nwa $(TARGET)
+	@$(NWLINK) install-nwa $(TARGET) --external-data src/textures
 endif
 
-debug:
+debug: build
 ifeq ($(PLATFORM), simulator)
-	@gdb --args $(SIM)  --nwb $(TARGET)
+	@gdb --args $(SIM)  --nwb $(TARGET) --nwb-external-data src/textures
 endif
 	

@@ -1,57 +1,126 @@
-#include <eadk.h>
+// stdlib
 #include <stdio.h>
 #include <math.h>
 #include <malloc.h>
+#include <stdbool.h>
+
+// system specific wrappers
+#include "platform.h"
+#include "rendering.h"
+#include "input.h"
+#include "timings.h"
+#include "texture_loader.h"
+#include "unwind.h"
+
+// game files
 #include "vec.h"
 #include "raycaster.h"
 #include "maze.h"
+#include "player.h"
+#include "entity.h"
+#include "fixed_points.h"
 
+#define VERSION "0.5.0"
 
 // Yes I actually know that much
 #define PI 3.141592653589793f
 
-const char eadk_app_name[] __attribute__((section(".rodata.eadk_app_name"))) = "Maze";
+#ifdef PLATFORM_CALCULATOR
+
+// calculator specific sections
+const char eadk_app_name[] __attribute__((section(".rodata.eadk_app_name"))) = "DEAD END " VERSION;
 const uint32_t eadk_api_level  __attribute__((section(".rodata.eadk_api_level"))) = 0;
 
-int main(void) {
-    Maze maze = { .width = 20, .height = 20, .tiles = calloc(sizeof(uint8_t), 20 * 20)};
-    maze.tiles[3] = 1;
-    Vec2 pos = {0.5, 0.5};
+#endif
 
-    uint64_t last_time = eadk_timing_millis();
+int main(void) {
+
+    // create systems like renderer and keyboard
+    create_renderer();
+    keyboard_t keyboard = create_keyboard();
+    
+    textures_t textures;
+    if (load_textures(&textures) != 0) {
+        goto destroy_systems;
+    }
+    
+    uint64_t last_time = get_time();
     float dt = 0;
 
-    float angle = 0;
+    draw_rect_textured(eadk_screen_rect, textures.title_screen);
+    keyboard_poll(&keyboard);
+    while (key_pressed(&keyboard, key_ok)) {
+        keyboard_poll(&keyboard);
 
+        // compute delta time
+        dt = (get_time() - last_time) / 1000.0f;
+        last_time = get_time();
+    }
+    while (!key_pressed(&keyboard, key_ok)) {
+        keyboard_poll(&keyboard);
+
+        // compute delta time
+        dt = (get_time() - last_time) / 1000.0f;
+        last_time = get_time();
+    }
+
+    // generate the maze and create the player object
+    Maze maze = generate_maze(20, 20);
+    Player player = new_player((Vec2) { 0.5f, 0.5f }, (Vec2) { 1, 0 }, PI/3 /* 60° */);
+
+    // spawn the entities
+    Entity entities[] = {
+        (Entity) { .entity_type = 1, .pos = (Vec2) { 0.5f, 1.5f }},
+        (Entity) { .entity_type = 1, .pos = (Vec2) { 1.5f, 0.5f }},
+        (Entity) { .entity_type = 0, .pos = (Vec2) { 1.5f, 1.5f }},
+    };
+
+    // game loop
     while (true) {
-        eadk_keyboard_state_t keyboad = eadk_keyboard_scan();
+        keyboard_poll(&keyboard);
 
-        if (eadk_keyboard_key_down(keyboad, eadk_key_back)) {
+        if (key_pressed(&keyboard, key_back)) {
             break;
         }
 
-        angle += PI * (eadk_keyboard_key_down(keyboad, eadk_key_right) - eadk_keyboard_key_down(keyboad, eadk_key_left)) * dt;
-        if (angle > 2 * PI) {
-            angle = 0;
-        }
-        if (angle < 0) {
-            angle = 2 * PI;
-        }
-        float movement = (eadk_keyboard_key_down(keyboad, eadk_key_up) - eadk_keyboard_key_down(keyboad, eadk_key_down)) * dt;
+        // move the player
+        player_move(&player, &keyboard, dt, &maze);
 
-        pos = vec_add(pos, vec_scale(movement, (Vec2){cosf(angle), sinf(angle)}));
+        // move entities
+        for (uint16_t i = 0; i < sizeof(entities) / sizeof(Entity); i++) {
+            entity_move(&entities[i], dt, &player);
+        }
 
-        raycast_render(pos, &maze, angle);
+        LayeredTextures layers = {
+            .num_rects = 0,
+            .rects = NULL,
+            .pixels_by_rect = NULL,
+            .on_the_side = NULL,
+            .layers      = NULL,
+        };
+
+        // render the terain
+        raycast_render(player, &maze, entities, sizeof(entities) / sizeof(Entity), textures, layers);
         
+        // render fps
         char msg[50] = {0};
         snprintf(msg, 49, "FPS: %d", (uint16_t)((dt > 0)? 1 / dt : 100000.0f));
-        eadk_display_draw_string(msg, (eadk_point_t) { 0, 0 }, false, eadk_color_white, eadk_color_black);
+        draw_string((point_t) { 0, 0 }, msg);
 
-        eadk_display_wait_for_vblank();
+        swap_buffer();
 
-        dt = (eadk_timing_millis() - last_time) / 1000.0f;
-        last_time = eadk_timing_millis();
+        // compute delta time
+        dt = (get_time() - last_time) / 1000.0f;
+        last_time = get_time();
     }
 
-    free(maze.tiles);
+free_game_ressources:
+    // free the maze
+    free_maze(&maze);
+    unload_textures(&textures);
+
+destroy_systems:
+    // destroy the keyboard
+    destroy_keyboard(&keyboard);
+    destroy_renderer();
 }
