@@ -178,7 +178,7 @@ static void draw_wall_and_floor_slice(color_t *vertical_buffer, float *vertical_
 
     // compute the last point on the wall
     uint16_t draw_end = wall_center + wall_height / 2;
-    if (draw_end > SCREEN_HEIGHT) draw_end = SCREEN_HEIGHT;
+    if (draw_end > VIEW_3D_HEIGHT) draw_end = VIEW_3D_HEIGHT;
 
     // compute the step of the texture y
     float delta_texture_y = TEXTURE_HEIGHT / (float)wall_height;
@@ -245,7 +245,7 @@ static void draw_wall_and_floor_slice(color_t *vertical_buffer, float *vertical_
     color_t *floor_texture = textures.wall_textures + TEXTURE_SIZE*6;
     color_t *ceiling_texture = textures.wall_textures + TEXTURE_SIZE;
 
-    if (draw_end < 0) draw_end = SCREEN_HEIGHT;
+    // if (draw_end >= SCREEN_HEIGHT) draw_end = SCREEN_HEIGHT;
     fixed16_t inv_dst = float_to_fixed16(1 / hitInfo.distance);
 
     // constants for speed
@@ -259,7 +259,7 @@ static void draw_wall_and_floor_slice(color_t *vertical_buffer, float *vertical_
         fixed16_t floor_dst = depth_y_lookup.table[y];
 
         // if the depth of this pixel is already less don't render there is some thing in front
-        if (vertical_depth[y] < fixed16_to_float(floor_dst)) {
+        if (vertical_depth[SCREEN_HEIGHT - y] < fixed16_to_float(floor_dst)) {
             continue;
         }
 
@@ -276,8 +276,10 @@ static void draw_wall_and_floor_slice(color_t *vertical_buffer, float *vertical_
         
         // floor
         // texture laid down on the side
-        vertical_buffer[y] = floor_texture[texture_x * TEXTURE_HEIGHT + texture_y];
-        vertical_depth [y] = fixed16_to_float(floor_dst);
+        if (y < VIEW_3D_HEIGHT) {
+            vertical_buffer[y] = floor_texture[texture_x * TEXTURE_HEIGHT + texture_y];
+            vertical_depth [y] = fixed16_to_float(floor_dst);
+        }
 
         // ceiling
         vertical_buffer[SCREEN_HEIGHT - y] = ceiling_texture[texture_x * TEXTURE_HEIGHT + texture_y];
@@ -303,7 +305,7 @@ static void draw_entity_slice(color_t *vertical_buffer, float *vertical_depth, E
 
     // clamp draw_start and draw_end
     if (entity_draw_start_y < 0) entity_draw_start_y = 0;
-    if (entity_draw_end_y > SCREEN_HEIGHT) entity_draw_end_y = SCREEN_HEIGHT;
+    if (entity_draw_end_y > VIEW_3D_HEIGHT) entity_draw_end_y = VIEW_3D_HEIGHT;
 
     // compute stating texture y coord
     float entity_texture_y = (entity_draw_start_y - entity_high_y) * delta_entity_texture_y;
@@ -342,7 +344,7 @@ static void render_vertical_slice_to_screen(color_t *vertical_buffer, uint16_t x
             .x = x,
             .y = 0,
             .width = 1,
-            .height = SCREEN_HEIGHT,
+            .height = VIEW_3D_HEIGHT,
         },
         vertical_buffer
     );
@@ -365,7 +367,7 @@ static int16_t in_any_rect(LayeredTextures layers, uint16_t x, uint16_t y) {
 static void clear_vertical_buffers(color_t *vertical_buffer, float *vertical_depth, uint16_t x, LayeredTextures layers) {
     if (vertical_buffer == NULL || vertical_depth == NULL) return;
 
-    for (uint16_t y = 0; y < SCREEN_HEIGHT; y++) {
+    for (uint16_t y = 0; y < VIEW_3D_HEIGHT; y++) {
         int16_t i = in_any_rect(layers, x, y);
 
         if (i == -1) {
@@ -403,8 +405,8 @@ void raycast_render(Player player, Maze *maze, Entity *entities, size_t num_enti
     // I can't have an entire backbuffer for the whole screen
     // so I keep a backbuffer per column since that is pretty
     // good for a raycaster that renders per column
-    float   vertical_depth [SCREEN_HEIGHT];
-    color_t vertical_buffer[SCREEN_HEIGHT];
+    float   vertical_depth [VIEW_3D_HEIGHT];
+    color_t vertical_buffer[VIEW_3D_HEIGHT];
 
     /**
      * TODO: batch multiple vertical buffers together
@@ -434,7 +436,7 @@ void raycast_render(Player player, Maze *maze, Entity *entities, size_t num_enti
         int16_t y_offset = 0; // offset Y of the player compared to the center of the screen
         draw_wall_and_floor_slice(vertical_buffer, vertical_depth, ray, hitInfo, y_offset, textures);
 
-        // recompute wall_enter for caching
+        // recompute wall_center for caching
         int16_t wall_center = SCREEN_HEIGHT / 2 + y_offset / hitInfo.distance;
         if (wall_center < 0) wall_center = 0;
         if (wall_center >= SCREEN_HEIGHT) wall_center = SCREEN_HEIGHT;
