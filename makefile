@@ -1,5 +1,3 @@
-include sim_path.mak
-
 BUILD_DIR := build
 TARGET := $(BUILD_DIR)/dead-end.nwa
 SIM_TARGET := $(BUILD_DIR)/maze
@@ -16,6 +14,8 @@ ICON_O := $(BUILD_DIR)/icon.o
 PLATFORM := device
 
 ifeq ($(PLATFORM), simulator)
+    include sim_path.mak
+
     CC := gcc
 
     C_FLAGS := $(shell $(NWLINK) eadk-cflags-simulator) -ggdb -fno-exceptions -Wall
@@ -57,4 +57,3 @@ debug: build
 ifeq ($(PLATFORM), simulator)
 	@gdb --args $(SIM)  --nwb $(TARGET) --nwb-external-data src/textures
 endif
-	
