@@ -1,7 +1,7 @@
 include sim_path.mak
 
 BUILD_DIR := build
-TARGET := $(BUILD_DIR)/maze.nwa
+TARGET := $(BUILD_DIR)/dead-end.nwa
 SIM_TARGET := $(BUILD_DIR)/maze
 O          := $(BUILD_DIR)/maze.o
 

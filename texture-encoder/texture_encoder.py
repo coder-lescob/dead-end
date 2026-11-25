@@ -58,27 +58,34 @@ class Section:
         data = bytearray()
         for (path, vertical) in zip(self.images, self.sides):
             image_data = utils.encode_image(vertical, pygame.image.load(path))
-            data.append(image_data)
+            data.extend(image_data)
 
         return data
 
     def __repr__(self):
         return f"<section {self.section_name} {self.images}, {self.sides}>"
 
-def parse_argv(argv) -> (list[Section], str):
+def parse_argv(argv) -> (list[Section], str | None):
     args = Iter(argv)
     sections = []
-    output_file = ""
+    output_file = None
 
     while arg := args.next():
         if arg.startswith("--"):
-            [keyword, name] = arg.removeprefix("--").split("=", 1)
+            [keyword, name] = arg.removeprefix("--").split("=", 1) if "=" in arg else [arg, None]
 
             match keyword:
                 case "section":
                     sections.append(Section.parse(name, args))
                 case "out":
                     output_file = name
+                case "help":
+                    print("texture-encoder for the dead-end game")
+                    print("Copyright (c) 2026 Gabriel LESCOB. All Rights Reserved.")
+                    print("usage:")
+                    print("texture-encoder [--help] [--section=<name> [-v] image1 [-v] image2 ...]...")
+                    print("--help: show this help")
+                    print("--section=<name>: create a new section in the texture file")
 
     return (sections, output_file)
 
@@ -92,6 +99,13 @@ def main(argv):
 
     file_data = utils.encode_header(header)
     file_data.extend(sections_data)
+    
+    if output_file is None:
+        for (i, byte) in enumerate(file_data):
+            if i % 16 == 0:
+                print(f"\n{i:08x} | ", end="")
+            print(f"{byte:02x} ", end="")
+        return
 
     with open(output_file, "wb") as file:
         file.write(file_data)

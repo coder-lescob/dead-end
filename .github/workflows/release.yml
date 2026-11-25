@@ -1,0 +1,20 @@
+on: 
+    push:
+        branches: [main, dev]
+        tags: [ "v*" ]
+permissions:
+    contents: write
+jobs:
+    release_game:
+        runs-on: ubuntu-latest
+        steps: 
+            - name: intalling toolchain
+              run:  sudo apt update && sudo apt install -y gcc-arm-none-eabi
+            - uses: actions/checkout@v7
+            - name: build game
+              run:  make PLATFORM=device build
+            - name: Release
+              uses: softprops/action-gh-release@v3
+              if: github.ref_type == 'tag'
+              with: 
+                    files: build/dead-end.nwa
