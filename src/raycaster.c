@@ -331,7 +331,7 @@ static void draw_entity_slice(color_t *vertical_buffer, float *vertical_depth, E
 
 /**
  * renders the current slice to the screen
- * @warning vertical_buffer assumed of length SCREEN_HEIGHT
+ * @warning vertical_buffer assumed of length VIEW_3D_HEIGHT
  */
 static void render_vertical_slice_to_screen(color_t *vertical_buffer, uint16_t x) {
     if (vertical_buffer == NULL) {
