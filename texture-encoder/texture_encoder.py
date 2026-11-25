@@ -1,6 +1,7 @@
 import pygame
 import utils
 import sys
+from dataclasses import dataclass
 from copy import deepcopy
 
 class Iter:
@@ -19,36 +20,50 @@ class Iter:
         except StopIteration:
             return None
 
+@dataclass
+class ImageParm:
+    path: str
+    column_major: bool
+    indicate_size: bool
+    dim: tuple[int, int] | None
+
 class Section:
     section_name: str
-    images: list[str]
-    sides: list[bool] # 1 vertical, 0 horizontal (default)
+    images: list[ImageParm]
 
     def parse(name, args) -> 'Section':
         section_name = name
         images = []
-        sides  = []
 
         while arg := args.peek():
             if arg.startswith("--"):
                 break
             args.next()
             side = False # default horizontal
+            image_size = (0, 0) # sentinel for nothing to change
+            indicate_size = False
 
-            if arg.startswith("-"):
-                if arg.removeprefix("-") == "v":
-                    side = True
+            while arg.startswith("-"):
+                match arg.removeprefix("-").split("=", 1):
+                    case ["v"]: side = True
+                    case ["size", size]:
+                        if len(dim := size.split("x", 1)):
+                            image_size = (int(dim[0]), int(dim[1]))
+                        else:
+                            print("invalid format missing 'x' in multiplication")
+                            exit(1)
+                    case ["indicate-size"]:
+                        indicate_size = True
+
                 arg = args.next()
                 if arg is None:
                     break
 
-            images.append(arg) # path torwards image
-            sides.append(side)
+            images.append(ImageParm(arg, side, indicate_size, image_size))
 
         self = Section()
         self.section_name = section_name
         self.images = images
-        self.sides = sides
 
         return self
 
@@ -56,8 +71,21 @@ class Section:
         
         # for each file path encode it and add it to the section's data
         data = bytearray()
-        for (path, vertical) in zip(self.images, self.sides):
-            image_data = utils.encode_image(vertical, pygame.image.load(path))
+
+        for image_param in self.images:
+            path = image_param.path
+            vertical = image_param.column_major
+            indicate_size = image_param.indicate_size
+            dim = image_param.dim
+            image = pygame.image.load(path)
+
+            if dim != (0, 0):
+                image = pygame.transform.scale(image, dim)
+
+            if indicate_size:
+                data.extend(utils.encode_u32(image.get_width() & 0xffff | image.get_height() << 16))
+
+            image_data = utils.encode_image(vertical, image)
             data.extend(image_data)
 
         return data
@@ -83,7 +111,7 @@ def parse_argv(argv) -> (list[Section], str | None):
                     print("texture-encoder for the dead-end game")
                     print("Copyright (c) 2026 Gabriel LESCOB. All Rights Reserved.")
                     print("usage:")
-                    print("texture-encoder [--help] [--section=<name> [-v] image1 [-v] image2 ...]...")
+                    print("texture-encoder [--help] [--section=<name> [-v] [-size=<w>x<h>] [-indicate-size] image1 [-v] [-size=<w>w<h>] [-indicate-size] image2 ...]...")
                     print("--help: show this help")
                     print("--section=<name>: create a new section in the texture file")
 

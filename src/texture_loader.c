@@ -17,25 +17,18 @@ int load_textures(textures_t *textures) {
     int missing = check_for_missing_sections(&header);
     
     if (missing != 0) { return -1; }
-
+    
+    // convert offsets to pointers
     const char *wall_ptr = eadk_external_data + header.wall_offset;
     const char *titl_ptr = eadk_external_data + header.titl_offset;
-    const char *sky_ptr  = eadk_external_data + header.sky_offset ;
     const char *enty_ptr = eadk_external_data + header.enty_offset;
-    (void)next_u16(&titl_ptr); // ignore title screen dimentions
-    (void)next_u16(&titl_ptr); // ignore title screen dimentions
-    (void)next_u16(&sky_ptr); // ignore sky dimentions
-    (void)next_u16(&sky_ptr); // ignore sky dimentions
 
     *textures = (textures_t){
-        .wall_tex_w    = (uint16_t)next_u16(&wall_ptr),
-        .wall_tex_h    = (uint16_t)next_u16(&wall_ptr),
         .entities_tex_w = (uint16_t)next_u16(&enty_ptr),
         .entities_tex_h = (uint16_t)next_u16(&enty_ptr),
         .wall_textures     = (color_t *)wall_ptr,
         .entities_textures = (color_t *)enty_ptr,
         .title_screen      = (color_t *)titl_ptr,
-        .sky_texture       = (color_t *)sky_ptr,
     };
     return 0;
 }
@@ -57,9 +50,6 @@ static void load_texture_offset(header_t *header, char *name, uint32_t offset) {
     else if (strncmp(name, "titl", SECTION_NAME_LEN) == 0) {
         header->titl_offset = offset;
     }
-    else if (strncmp(name, "sky ", SECTION_NAME_LEN) == 0) {
-        header->sky_offset = offset;
-    }
     else if (strncmp(name, "enty", SECTION_NAME_LEN) == 0) {
         header->enty_offset = offset;
     }
@@ -78,8 +68,6 @@ int check_for_missing_sections(header_t *header) {
         return error_screen("unable to load wall texture:\n'wall' section not found");
     else if (header->titl_offset == 0) 
         return error_screen("unable to load title screen texture:\n'titl' section not found");
-    else if (header->sky_offset == 0)
-        return error_screen("unable to load sky texture:\n'sky ' section not found");
     else if (header->enty_offset == 0)
         return error_screen("unable to load entity textures:\n'enty' section not found");
 
@@ -95,7 +83,6 @@ header_t parse_header(const char *file_content) {
         .wall_offset = 0,
         .enty_offset = 0,
         .titl_offset = 0,
-        .sky_offset  = 0,
     };
 
     // parse the header length

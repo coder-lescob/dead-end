@@ -12,6 +12,7 @@ ICON := $(SRC_DIR)/dead_end_logo.png
 ICON_O := $(BUILD_DIR)/icon.o
 
 PLATFORM := device
+TEXTURES := assets/textures.bin
 
 ifeq ($(PLATFORM), simulator)
     include sim_path.mak
@@ -48,12 +49,15 @@ endif
 
 run: build
 ifeq ($(PLATFORM), simulator)
-	@$(SIM) --nwb $(TARGET) --nwb-external-data src/textures
+	@$(SIM) --nwb $(TARGET) --nwb-external-data $(TEXTURES)
 else
-	@$(NWLINK) install-nwa $(TARGET) --external-data src/textures
+	@$(NWLINK) install-nwa $(TARGET) --external-data $(TEXTURES)
 endif
 
 debug: build
 ifeq ($(PLATFORM), simulator)
-	@gdb --args $(SIM)  --nwb $(TARGET) --nwb-external-data src/textures
+	@gdb --args $(SIM)  --nwb $(TARGET) --nwb-external-data $(TEXTURES)
 endif
+
+build-textures:
+	@cd texture-encoder && ./rebake.sh
