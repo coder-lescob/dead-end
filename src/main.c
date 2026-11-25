@@ -47,7 +47,7 @@ int main(void) {
     uint64_t last_time = get_time();
     float dt = 0;
 
-    draw_rect_textured(eadk_screen_rect, textures.title_screen);
+    draw_rect_textured(SCREEN_RECT, textures.title_screen);
     keyboard_poll(&keyboard);
     while (key_pressed(&keyboard, key_ok)) {
         keyboard_poll(&keyboard);
@@ -63,6 +63,7 @@ int main(void) {
         dt = (get_time() - last_time) / 1000.0f;
         last_time = get_time();
     }
+    draw_rect_uniform(SCREEN_RECT, 0);
 
     // generate the maze and create the player object
     Maze maze = generate_maze(20, 20);
@@ -104,8 +105,8 @@ int main(void) {
         
         // render fps
         char msg[50] = {0};
-        snprintf(msg, 49, "FPS: %d", (uint16_t)((dt > 0)? 1 / dt : 100000.0f));
-        draw_string((point_t) { 0, 0 }, msg);
+        snprintf(msg, 49, "%d FPS  ", (uint16_t)((dt > 0)? 1 / dt : 100000.0f));
+        draw_string((point_t) { 0, SCREEN_HEIGHT - LITTLE_FONT_HEIGHT }, msg);
 
         swap_buffer();
 

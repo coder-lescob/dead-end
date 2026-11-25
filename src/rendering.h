@@ -11,7 +11,9 @@
 // constants
 #define SCREEN_WIDTH  EADK_SCREEN_WIDTH
 #define SCREEN_HEIGHT EADK_SCREEN_HEIGHT
-#define LITTE_FONT_HEIGHT 14 // 14px
+#define LITTLE_FONT_HEIGHT 14 // 14p
+#define HUD_HIGHT      50
+#define VIEW_3D_HEIGHT SCREEN_HEIGHT - HUD_HIGHT
 
 // other types
 typedef eadk_rect_t rect_t;
@@ -24,6 +26,8 @@ typedef struct {
 #else
 #error PLATFORM NOT SUPPORTED
 #endif
+
+#define SCREEN_RECT (rect_t) { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT }
 
 // FUNCTION WRAPPERS
 

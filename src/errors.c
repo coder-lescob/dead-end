@@ -32,7 +32,7 @@ int error_screen(char *msg) {
 
     // display help message
     draw_string(
-        (point_t) { 0, SCREEN_HEIGHT - LITTE_FONT_HEIGHT }, 
+        (point_t) { 0, SCREEN_HEIGHT - LITTLE_FONT_HEIGHT }, 
         QUIT_ERR_MSG
     );
 

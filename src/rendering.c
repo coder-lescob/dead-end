@@ -25,8 +25,8 @@ void destroy_renderer() { /* the numworks has no rendering objects */ }
  */
 void draw_rect_uniform(rect_t rect, color_t color) {
     if (
-        rect.x > SCREEN_WIDTH 
-        || rect.y > SCREEN_HEIGHT 
+        rect.x < 0 
+        || rect.y < 0
         || rect.x + rect.width > SCREEN_WIDTH 
         || rect.y + rect.height > SCREEN_HEIGHT
     )
@@ -48,8 +48,8 @@ void draw_rect_uniform(rect_t rect, color_t color) {
  */
 void draw_rect_textured(rect_t rect, const color_t *pixels) {
     if (
-        rect.x > SCREEN_WIDTH 
-        || rect.y > SCREEN_HEIGHT 
+        rect.x < 0
+        || rect.y < 0
         || rect.x + rect.width > SCREEN_WIDTH 
         || rect.y + rect.height > SCREEN_HEIGHT
     )
@@ -81,9 +81,7 @@ void draw_string(point_t point, const char *str) {
  * swap the backbuffer with the screen buffer
  * @note on the calculator it does nothing because it has no back buffer
  */
-void swap_buffer() {
-    //eadk_display_wait_for_vblank();
-}
+void swap_buffer() { /* nothing to swap on calculator */ }
 
 #else
 #error PLATFORM NOT SUPPORTED
