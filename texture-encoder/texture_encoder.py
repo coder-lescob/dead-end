@@ -65,9 +65,10 @@ class Section:
     def __repr__(self):
         return f"<section {self.section_name} {self.images}, {self.sides}>"
 
-def parse_argv(argv) -> list[Section]:
+def parse_argv(argv) -> (list[Section], str):
     args = Iter(argv)
     sections = []
+    output_file = ""
 
     while arg := args.next():
         if arg.startswith("--"):
@@ -76,11 +77,24 @@ def parse_argv(argv) -> list[Section]:
             match keyword:
                 case "section":
                     sections.append(Section.parse(name, args))
+                case "out":
+                    output_file = name
 
-    return sections
+    return (sections, output_file)
 
 def main(argv):
-    print(parse_argv(argv))
+    header: dict[str, int] = {}
+    (sections, output_file) = parse_argv(argv)
+    sections_data = bytearray()
+
+    for section in sections:
+        utils.add_section(sections_data, header, section.section_name, section.encode())
+
+    file_data = utils.encode_header(header)
+    file_data.extend(sections_data)
+
+    with open(output_file, "wb") as file:
+        file.write(file_data)
 
 if __name__ == "__main__":
     main(sys.argv)
