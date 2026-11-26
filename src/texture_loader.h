@@ -21,6 +21,7 @@ typedef struct {
     uint32_t wall_offset;
     uint32_t enty_offset;
     uint32_t titl_offset;
+    uint32_t hud_background;
 } header_t;
 
 typedef struct {
@@ -31,6 +32,7 @@ typedef struct {
     color_t *wall_textures;     // wall textures must be TEXTURE_WIDTH x TEXTURE_HEIGHT
     color_t *entities_textures;
     color_t *title_screen;      // title screen must be SCREEN_WIDTH x SCREEN_HEIGHT
+    color_t *hud_background;    // hud background must be SCREEN_WIDTH x HUD_HEIGHT
 } textures_t;
 
 /**

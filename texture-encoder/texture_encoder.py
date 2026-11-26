@@ -111,7 +111,7 @@ def parse_argv(argv) -> (list[Section], str | None):
                     print("texture-encoder for the dead-end game")
                     print("Copyright (c) 2026 Gabriel LESCOB. All Rights Reserved.")
                     print("usage:")
-                    print("texture-encoder [--help] [--section=<name> [-v] [-size=<w>x<h>] [-indicate-size] image1 [-v] [-size=<w>w<h>] [-indicate-size] image2 ...]...")
+                    print("texture-encoder [--help] [--section=<name> [-v] [-size=<w>x<h>] [-indicate-size] image1 [-v] [-size=<w>x<h>] [-indicate-size] image2 ...]...")
                     print("--help: show this help")
                     print("--section=<name>: create a new section in the texture file")
 

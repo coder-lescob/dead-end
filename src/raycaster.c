@@ -321,7 +321,7 @@ static void draw_entity_slice(color_t *vertical_buffer, float *vertical_depth, E
         color_t color = textures.entities_textures[tex_y + entity.texture_x * textures.entities_tex_h];
 
         // white is considered transparent
-        if (color == eadk_color_white) continue;
+        if (color == COLOR_WHITE) continue;
 
         // draw the entity
         vertical_buffer[y] = color;

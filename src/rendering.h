@@ -12,8 +12,13 @@
 #define SCREEN_WIDTH  EADK_SCREEN_WIDTH
 #define SCREEN_HEIGHT EADK_SCREEN_HEIGHT
 #define LITTLE_FONT_HEIGHT 14 // 14p
-#define HUD_HIGHT      50
+#define HUD_HIGHT      32
 #define VIEW_3D_HEIGHT SCREEN_HEIGHT - HUD_HIGHT
+#define HUD_RECT (rect_t) { 0, VIEW_3D_HEIGHT, SCREEN_WIDTH, HUD_HIGHT }
+
+#define COLOR_WHITE eadk_color_white
+#define COLOR_BLACK eadk_color_black
+#define COLOR_RED eadk_color_red
 
 // other types
 typedef eadk_rect_t rect_t;

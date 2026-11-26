@@ -20,7 +20,7 @@
 int error_screen(char *msg) {
 
     // fill the screen with red
-    draw_rect_uniform(eadk_screen_rect, eadk_color_red);
+    draw_rect_uniform(SCREEN_RECT, COLOR_RED);
 
     /**
      * TODO: format msg text

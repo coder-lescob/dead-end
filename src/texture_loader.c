@@ -2,7 +2,6 @@
 
 #include "platform.h"
 #include "errors.h"
-#include "unwind.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -22,6 +21,7 @@ int load_textures(textures_t *textures) {
     const char *wall_ptr = eadk_external_data + header.wall_offset;
     const char *titl_ptr = eadk_external_data + header.titl_offset;
     const char *enty_ptr = eadk_external_data + header.enty_offset;
+    const char *hudb_ptr = eadk_external_data + header.hud_background;
 
     *textures = (textures_t){
         .entities_tex_w = (uint16_t)next_u16(&enty_ptr),
@@ -29,6 +29,7 @@ int load_textures(textures_t *textures) {
         .wall_textures     = (color_t *)wall_ptr,
         .entities_textures = (color_t *)enty_ptr,
         .title_screen      = (color_t *)titl_ptr,
+        .hud_background    = (color_t *)hudb_ptr,
     };
     return 0;
 }
@@ -53,6 +54,9 @@ static void load_texture_offset(header_t *header, char *name, uint32_t offset) {
     else if (strncmp(name, "enty", SECTION_NAME_LEN) == 0) {
         header->enty_offset = offset;
     }
+    else if (strncmp(name, "hudb", SECTION_NAME_LEN) == 0) {
+        header->hud_background = offset;
+    }
     else {
         /**
          * TODO: display or log warning
@@ -70,6 +74,8 @@ int check_for_missing_sections(header_t *header) {
         return error_screen("unable to load title screen texture:\n'titl' section not found");
     else if (header->enty_offset == 0)
         return error_screen("unable to load entity textures:\n'enty' section not found");
+    else if (header->hud_background == 0)
+        return error_screen("unable to load hud background:\n'hudb' section not found");
 
     // No problemo
     return 0;

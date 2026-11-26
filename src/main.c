@@ -63,7 +63,7 @@ int main(void) {
         dt = (get_time() - last_time) / 1000.0f;
         last_time = get_time();
     }
-    draw_rect_uniform(SCREEN_RECT, 0);
+    draw_rect_textured(HUD_RECT, textures.hud_background);
 
     // generate the maze and create the player object
     Maze maze = generate_maze(20, 20);
@@ -105,8 +105,8 @@ int main(void) {
         
         // render fps
         char msg[50] = {0};
-        snprintf(msg, 49, "%d FPS  ", (uint16_t)((dt > 0)? 1 / dt : 100000.0f));
-        draw_string((point_t) { 0, SCREEN_HEIGHT - LITTLE_FONT_HEIGHT }, msg);
+        snprintf(msg, 49, "%d FPS   ", (uint16_t)((dt > 0)? 1 / dt : 100000.0f));
+        draw_string((point_t) { 0, VIEW_3D_HEIGHT }, msg);
 
         swap_buffer();
 
