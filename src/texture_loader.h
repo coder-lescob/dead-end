@@ -22,6 +22,7 @@ typedef struct {
     uint32_t enty_offset;
     uint32_t titl_offset;
     uint32_t hud_background;
+    uint32_t nums_offset;
 } header_t;
 
 typedef struct {
@@ -33,6 +34,7 @@ typedef struct {
     color_t *entities_textures;
     color_t *title_screen;      // title screen must be SCREEN_WIDTH x SCREEN_HEIGHT
     color_t *hud_background;    // hud background must be SCREEN_WIDTH x HUD_HEIGHT
+    color_t *nums;              // the number textures must be NUM_HIEGHT x 11 * NUM_WIDTH
 } textures_t;
 
 /**
@@ -58,16 +60,11 @@ int check_for_missing_sections(header_t *header);
 /**
  * reads the next uint32 from the file and increament the pointer by 4 bytes
  */
-uint32_t next_u32(const char **file_ptr);
+uint32_t next_u32(const char **file_ptr, int endianess);
 
 /**
  * reads the next uint16 from the file and increament the pointer by 2 bytes
 */
 uint16_t next_u16(const char **file_ptr);
-
-/**
- * reads the next string of length len
- */
-void next_str(const char **file_ptr, char *str, uint16_t len);
 
 #endif

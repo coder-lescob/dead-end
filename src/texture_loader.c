@@ -44,18 +44,21 @@ void unload_textures(textures_t *textures) {
 /**
  * load a texture offset in the header by its name
  */
-static void load_texture_offset(header_t *header, char *name, uint32_t offset) {
-    if (strncmp(name, "wall", SECTION_NAME_LEN) == 0) {
+static void load_texture_offset(header_t *header, uint32_t name, uint32_t offset) {
+    if (name == 'wall') {
         header->wall_offset = offset;
     }
-    else if (strncmp(name, "titl", SECTION_NAME_LEN) == 0) {
+    else if (name == 'titl') {
         header->titl_offset = offset;
     }
-    else if (strncmp(name, "enty", SECTION_NAME_LEN) == 0) {
+    else if (name == 'enty') {
         header->enty_offset = offset;
     }
-    else if (strncmp(name, "hudb", SECTION_NAME_LEN) == 0) {
+    else if (name == 'hudb') {
         header->hud_background = offset;
+    }
+    else if (name == 'nums') {
+        header->nums_offset = offset;
     }
     else {
         /**
@@ -76,6 +79,8 @@ int check_for_missing_sections(header_t *header) {
         return error_screen("unable to load entity textures:\n'enty' section not found");
     else if (header->hud_background == 0)
         return error_screen("unable to load hud background:\n'hudb' section not found");
+    else if (header->nums_offset == 0)
+        return error_screen("unable to load nums textures:\n'nums' section not found");
 
     // No problemo
     return 0;
@@ -92,13 +97,12 @@ header_t parse_header(const char *file_content) {
     };
 
     // parse the header length
-    uint32_t header_len = next_u32(&file_content);
-    char name[SECTION_NAME_LEN + 1] = "";
+    uint32_t header_len = next_u32(&file_content, 0);
 
     for (uint16_t i = 0; i < header_len; i += 8) {
-        // read section name
-        next_str(&file_content, name, SECTION_NAME_LEN);
-        uint32_t offset = next_u32(&file_content);
+        // read section name and offset
+        uint32_t name   = next_u32(&file_content, 1);
+        uint32_t offset = next_u32(&file_content, 0);
 
         load_texture_offset(&header, name, offset);
     }
@@ -109,14 +113,25 @@ header_t parse_header(const char *file_content) {
 /**
  * reads the next uint32 from the file and increament the pointer by 4 bytes
  */
-uint32_t next_u32(const char **file_ptr) {
+uint32_t next_u32(const char **file_ptr, int endianess) {
     if (file_ptr == NULL) return 0;
     if (*file_ptr == NULL) return 0;
 
-    uint32_t u32 = ((**file_ptr) & 0xff)
-    | ((*(*file_ptr + 1) & 0xff) << 8 )
-    | ((*(*file_ptr + 2) & 0xff) << 16)
-    | ((*(*file_ptr + 3) & 0xff) << 24);
+    uint32_t u32;
+    
+    // default: little-endian
+    if (endianess == 0) {
+        u32 = ((**file_ptr) & 0xff)
+        | ((*(*file_ptr + 1) & 0xff) << 8 )
+        | ((*(*file_ptr + 2) & 0xff) << 16)
+        | ((*(*file_ptr + 3) & 0xff) << 24);
+    }
+    else {
+        u32 = (*(*file_ptr + 3) & 0xff)
+        | ((*(*file_ptr + 2) & 0xff) << 8 )
+        | ((*(*file_ptr + 1) & 0xff) << 16)
+        | ((**file_ptr & 0xff) << 24);
+    }
 
     (*file_ptr) += 4;
 
@@ -129,28 +144,14 @@ uint32_t next_u32(const char **file_ptr) {
 uint16_t next_u16(const char **file_ptr) {
     if (file_ptr == NULL) return 0;
     if (*file_ptr == NULL) return 0;
-
+    
+    // little-endian
     uint16_t u16 = ((**file_ptr) & 0xff)
     | ((*(*file_ptr + 1) & 0xff) << 8);
 
     (*file_ptr) += 2;
 
     return u16;
-}
-
-/**
- * reads the next string of length len
- * @warning assums the str is large enough
- */
-void next_str(const char **file_ptr, char *str, uint16_t len) {
-    if (file_ptr == NULL) return;
-    if (*file_ptr == NULL) return;
-
-    // copy the string
-    memcpy(str, *file_ptr, len);
-
-    // advance the pointer
-    *file_ptr += len;
 }
 
 #else
